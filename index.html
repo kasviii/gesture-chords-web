@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GESTURE CHORDS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+
+  :root {
+    --bg: #040408;
+    --panel: rgba(10,10,20,0.85);
+    --accent1: #00ffe0;
+    --accent2: #ff2d6b;
+    --accent3: #c87dff;
+    --accent4: #ffd166;
+    --text: #e0e0f0;
+    --dim: rgba(255,255,255,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,224,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,224,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridPulse 8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes gridPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Main layout */
+  #app {
+    position: relative;
+    z-index: 1;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--dim);
+    background: rgba(4,4,8,0.9);
+    backdrop-filter: blur(12px);
+  }
+
+  #title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.15em;
+    background: linear-gradient(90deg, var(--accent1), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  #status-bar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.4);
+  }
+
+  #status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #333;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  #status-dot.active {
+    background: var(--accent1);
+    box-shadow: 0 0 12px var(--accent1);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 6px var(--accent1); }
+    50% { box-shadow: 0 0 20px var(--accent1), 0 0 40px rgba(0,255,224,0.3); }
+  }
+
+  /* Main content */
+  #main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* Camera area */
+  #camera-area {
+    position: relative;
+    overflow: hidden;
+  }
+
+  #video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.75;
+  }
+
+  #canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+  }
+
+  /* Chord display overlay */
+  #chord-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    padding: 32px;
+    pointer-events: none;
+  }
+
+  #chord-display {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+
+  #chord-display.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #chord-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 40px currentColor;
+  }
+
+  #chord-vibe {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  /* Waveform visualizer */
+  #waveform-canvas {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    opacity: 0.6;
+  }
+
+  /* Start screen */
+  #start-screen {
+    position: absolute;
+    inset: 0;
+    background: rgba(4,4,8,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+
+  #start-screen h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 0.2em;
+    color: var(--accent1);
+    text-shadow: 0 0 30px var(--accent1);
+  }
+
+  #start-screen p {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    max-width: 300px;
+    line-height: 2;
+  }
+
+  #start-btn {
+    background: transparent;
+    border: 1px solid var(--accent1);
+    color: var(--accent1);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    padding: 14px 40px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #start-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent1);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: -1;
+  }
+
+  #start-btn:hover {
+    color: var(--bg);
+    box-shadow: 0 0 30px var(--accent1);
+  }
+
+  #start-btn:hover::before { transform: translateX(0); }
+
+  /* Right panel */
+  #right-panel {
+    background: var(--panel);
+    border-left: 1px solid var(--dim);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+  }
+
+  .panel-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--dim);
+  }
+
+  .panel-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 14px;
+  }
+
+  /* Gesture list */
+  #gesture-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    flex: 1;
+    padding: 16px;
+  }
+
+  .gesture-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+  }
+
+  .gesture-item.active {
+    border-color: currentColor;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .gesture-item.active .gesture-dot {
+    box-shadow: 0 0 12px currentColor;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .gesture-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .gesture-emoji { font-size: 1.1rem; }
+
+  .gesture-info { flex: 1; }
+  .gesture-chord { font-weight: 700; }
+  .gesture-vibe { font-size: 0.58rem; opacity: 0.5; margin-top: 1px; }
+
+  .gesture-conf {
+    font-size: 0.6rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .gesture-item.active .gesture-conf { opacity: 0.6; }
+
+  /* Confidence bar */
+  #conf-section { padding: 16px 20px; }
+  #conf-bar-bg {
+    height: 3px;
+    background: var(--dim);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  #conf-bar {
+    height: 100%;
+    background: var(--accent1);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.15s, background 0.3s;
+    box-shadow: 0 0 8px var(--accent1);
+  }
+  #conf-value {
+    font-size: 0.6rem;
+    opacity: 0.5;
+    margin-top: 6px;
+  }
+
+  /* Recording button */
+  #rec-btn {
+    background: transparent;
+    border: 1px solid rgba(255,45,107,0.4);
+    color: rgba(255,45,107,0.7);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    padding: 8px 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #rec-btn:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    box-shadow: 0 0 16px rgba(255,45,107,0.3);
+  }
+  #rec-btn.recording {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    box-shadow: 0 0 16px rgba(255,45,107,0.4);
+    animation: recPulse 1s ease-in-out infinite;
+  }
+  @keyframes recPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(255,45,107,0.4); }
+    50% { box-shadow: 0 0 24px rgba(255,45,107,0.8); }
+  }
+  #rec-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  #rec-btn.recording #rec-dot {
+    animation: recDot 1s ease-in-out infinite;
+  }
+  @keyframes recDot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Error message */
+  #error-msg {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(4,4,8,0.95);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 20;
+    text-align: center;
+    padding: 40px;
+  }
+  #error-msg.show { display: flex; }
+  #error-msg h3 { color: var(--accent2); font-size: 1rem; letter-spacing: 0.1em; }
+  #error-msg p { font-size: 0.7rem; opacity: 0.6; line-height: 2; }
+
+  /* Loading */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(4,4,8,0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 15;
+  }
+  #loading.hidden { display: none; }
+
+  #loading-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--accent1);
+  }
+
+  .loader {
+    width: 40px; height: 40px;
+    border: 2px solid var(--dim);
+    border-top-color: var(--accent1);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Ripple effect */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    animation: rippleAnim 0.8s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes rippleAnim {
+    0% { width: 0; height: 0; opacity: 0.8; }
+    100% { width: 300px; height: 300px; opacity: 0; margin-left: -150px; margin-top: -150px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="header">
+    <div id="title">GESTURE CHORDS</div>
+    <div id="status-bar">
+      <div id="status-dot"></div>
+      <span id="status-text">CAMERA OFF</span>
+      <span id="gesture-label" style="color:rgba(255,255,255,0.2)">NO GESTURE</span>
+      <button id="rec-btn"><div id="rec-dot"></div><span id="rec-label">REC</span></button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="camera-area">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <canvas id="waveform-canvas"></canvas>
+
+      <div id="chord-overlay">
+        <div id="chord-display">
+          <div id="chord-name">C MAJOR</div>
+          <div id="chord-vibe">BRIGHT & OPEN</div>
+        </div>
+      </div>
+
+      <div id="start-screen">
+        <h2>GESTURE CHORDS</h2>
+        <p>Use your hand gestures to play musical chords in real time.<br>Requires camera access.</p>
+        <button id="start-btn">ENABLE CAMERA</button>
+      </div>
+
+      <div id="loading" class="hidden">
+        <div class="loader"></div>
+        <div id="loading-text">LOADING MODELS...</div>
+      </div>
+
+      <div id="error-msg">
+        <h3>CAMERA ERROR</h3>
+        <p id="error-detail">Could not access camera.<br>Please allow camera permission and refresh.</p>
+      </div>
+    </div>
+
+    <div id="right-panel">
+      <div class="panel-section">
+        <div class="panel-label">Confidence</div>
+        <div id="conf-bar-bg"><div id="conf-bar"></div></div>
+        <div id="conf-value">—</div>
+      </div>
+
+      <div class="panel-label" style="padding: 16px 20px 0; font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.3)">Gestures</div>
+      <div id="gesture-list"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ── MediaPipe imports ────────────────────────────────────────
+import { GestureRecognizer, FilesetResolver, DrawingUtils } from
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
+
+// ── Chord definitions ────────────────────────────────────────
+const CHORDS = {
+  Open_Palm:    { name: "C MAJOR", vibe: "Bright & Open",     notes: ["C4","E4","G4"],      color: "#00ffe0" },
+  Closed_Fist:  { name: "A MINOR", vibe: "Dark & Moody",      notes: ["A3","C4","E4"],      color: "#6e8cff" },
+  Victory:      { name: "G MAJOR", vibe: "Hopeful",           notes: ["G3","B3","D4"],      color: "#ffd166" },
+  ILoveYou:     { name: "E MINOR", vibe: "Dramatic",          notes: ["E3","G3","B3"],      color: "#ff2d6b" },
+  Thumb_Up:     { name: "F MAJOR", vibe: "Warm & Resolved",   notes: ["F3","A3","C4"],      color: "#ff9f43" },
+  Pointing_Up:  { name: "B MINOR", vibe: "Melancholic",       notes: ["B3","D4","F#4"],     color: "#c87dff" },
+  Thumb_Down:   { name: "F MINOR", vibe: "Deeply Emotional",  notes: ["F3","Ab3","C4"],     color: "#4ecdc4" },
+};
+
+const GESTURE_EMOJIS = {
+  Open_Palm: "✋", Closed_Fist: "✊", Victory: "✌️",
+  ILoveYou: "🤟", Thumb_Up: "👍", Pointing_Up: "👆", Thumb_Down: "👎"
+};
+
+// ── Build gesture list UI ────────────────────────────────────
+const gestureList = document.getElementById("gesture-list");
+Object.entries(CHORDS).forEach(([key, data]) => {
+  const item = document.createElement("div");
+  item.className = "gesture-item";
+  item.id = `g-${key}`;
+  item.style.color = data.color;
+  item.innerHTML = `
+    <div class="gesture-dot"></div>
+    <div class="gesture-emoji">${GESTURE_EMOJIS[key]}</div>
+    <div class="gesture-info">
+      <div class="gesture-chord">${data.name}</div>
+      <div class="gesture-vibe">${data.vibe}</div>
+    </div>
+    <div class="gesture-conf" id="conf-${key}">—</div>
+  `;
+  gestureList.appendChild(item);
+});
+
+// ── Tone.js synth setup ──────────────────────────────────────
+let synth = null;
+let analyser = null;
+let waveformData = null;
+
+async function initAudio() {
+  await Tone.start();
+  synth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: "triangle" },
+    envelope: { attack: 0.08, decay: 0.3, sustain: 0.6, release: 1.5 },
+    volume: -8
+  }).toDestination();
+
+  const reverb = new Tone.Reverb({ decay: 3, wet: 0.4 }).toDestination();
+  const chorus = new Tone.Chorus(4, 2.5, 0.5).toDestination().start();
+  synth.connect(reverb);
+  synth.connect(chorus);
+
+  analyser = new Tone.Analyser("waveform", 256);
+  synth.connect(analyser);
+  waveformData = new Float32Array(256);
+}
+
+// ── Play chord ───────────────────────────────────────────────
+let lastGesture = null;
+let lastPlayTime = 0;
+
+function playChord(gesture) {
+  if (!synth) return;
+  const now = Date.now();
+  if (gesture === lastGesture && now - lastPlayTime < 1200) return;
+  lastGesture = gesture;
+  lastPlayTime = now;
+
+  const chord = CHORDS[gesture];
+  synth.releaseAll();
+  synth.triggerAttackRelease(chord.notes, "2n");
+}
+
+// ── Waveform renderer ────────────────────────────────────────
+const wfCanvas = document.getElementById("waveform-canvas");
+const wfCtx = wfCanvas.getContext("2d");
+
+function drawWaveform(color = "#00ffe0") {
+  if (!analyser) return;
+  const values = analyser.getValue();
+  wfCanvas.width = wfCanvas.offsetWidth;
+  wfCanvas.height = wfCanvas.offsetHeight;
+  const w = wfCanvas.width, h = wfCanvas.height;
+
+  wfCtx.clearRect(0, 0, w, h);
+  wfCtx.beginPath();
+  wfCtx.strokeStyle = color;
+  wfCtx.lineWidth = 1.5;
+  wfCtx.shadowColor = color;
+  wfCtx.shadowBlur = 8;
+
+  values.forEach((v, i) => {
+    const x = (i / values.length) * w;
+    const y = h / 2 + v * h * 0.4;
+    i === 0 ? wfCtx.moveTo(x, y) : wfCtx.lineTo(x, y);
+  });
+  wfCtx.stroke();
+}
+
+// ── Ripple effect ────────────────────────────────────────────
+function createRipple(x, y, color) {
+  const camArea = document.getElementById("camera-area");
+  const ripple = document.createElement("div");
+  ripple.className = "ripple";
+  ripple.style.cssText = `
+    left: ${x}px; top: ${y}px;
+    border: 2px solid ${color};
+    box-shadow: 0 0 20px ${color};
+  `;
+  camArea.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 800);
+}
+
+// ── Camera + MediaPipe ───────────────────────────────────────
+let recognizer = null;
+let lastVideoTime = -1;
+let currentGestureColor = "#00ffe0";
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+async function initMediaPipe() {
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+  );
+  recognizer = await GestureRecognizer.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numHands: 1,
+  });
+}
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
+  });
+  video.srcObject = stream;
+  await new Promise(r => video.onloadedmetadata = r);
+  video.play();
+}
+
+function resizeCanvas() {
+  canvas.width = video.videoWidth || canvas.offsetWidth;
+  canvas.height = video.videoHeight || canvas.offsetHeight;
+}
+
+// ── Main detection loop ──────────────────────────────────────
+const chordDisplay = document.getElementById("chord-display");
+const chordName = document.getElementById("chord-name");
+const chordVibe = document.getElementById("chord-vibe");
+const statusDot = document.getElementById("status-dot");
+const statusText = document.getElementById("status-text");
+const gestureLabel = document.getElementById("gesture-label");
+const confBar = document.getElementById("conf-bar");
+const confValue = document.getElementById("conf-value");
+
+let activeGestureKey = null;
+let rippleTimer = 0;
+
+function detect() {
+  if (!recognizer || video.readyState < 2) {
+    requestAnimationFrame(detect);
+    return;
+  }
+
+  resizeCanvas();
+
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const result = recognizer.recognizeForVideo(video, Date.now());
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw hand skeleton with glow
+    if (result.landmarks?.length > 0) {
+      const drawingUtils = new DrawingUtils(ctx);
+      const hand = result.landmarks[0];
+
+      const gesture = result.gestures?.[0]?.[0];
+      const gestureName = gesture?.categoryName;
+      const conf = gesture?.score || 0;
+      const chordData = CHORDS[gestureName];
+      const color = chordData?.color || "#00ffe0";
+      currentGestureColor = color;
+
+      // Glowing connections
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = color;
+      drawingUtils.drawConnectors(hand,
+        GestureRecognizer.HAND_CONNECTIONS,
+        { color: color, lineWidth: 2 }
+      );
+
+      // Glowing landmark dots
+      hand.forEach(lm => {
+        const x = lm.x * canvas.width;
+        const y = lm.y * canvas.height;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 20;
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+
+      if (chordData) {
+        // Play chord
+        playChord(gestureName);
+
+        // Update UI
+        chordName.textContent = chordData.name;
+        chordVibe.textContent = chordData.vibe;
+        chordName.style.color = color;
+        chordVibe.style.color = color;
+        chordDisplay.classList.add("visible");
+
+        gestureLabel.textContent = gestureName.toUpperCase().replace("_", " ");
+        gestureLabel.style.color = color;
+
+        confBar.style.width = `${conf * 100}%`;
+        confBar.style.background = color;
+        confBar.style.boxShadow = `0 0 8px ${color}`;
+        confValue.textContent = `${(conf * 100).toFixed(0)}% confidence`;
+
+        // Update gesture list
+        if (gestureName !== activeGestureKey) {
+          if (activeGestureKey) {
+            document.getElementById(`g-${activeGestureKey}`)?.classList.remove("active");
+          }
+          activeGestureKey = gestureName;
+          const item = document.getElementById(`g-${gestureName}`);
+          if (item) item.classList.add("active");
+
+          // Ripple at wrist
+          const wrist = hand[0];
+          const camRect = document.getElementById("camera-area").getBoundingClientRect();
+          createRipple(
+            (1 - wrist.x) * camRect.width,
+            wrist.y * camRect.height,
+            color
+          );
+        }
+
+        document.getElementById(`conf-${gestureName}`).textContent =
+          `${(conf * 100).toFixed(0)}%`;
+
+        statusDot.classList.add("active");
+        statusDot.style.background = color;
+        statusDot.style.boxShadow = `0 0 12px ${color}`;
+        statusText.textContent = "DETECTING";
+
+      } else {
+        // Hand visible but unknown gesture
+        gestureLabel.textContent = "UNRECOGNIZED";
+        gestureLabel.style.color = "rgba(255,255,255,0.3)";
+        chordDisplay.classList.remove("visible");
+        confBar.style.width = "0%";
+        confValue.textContent = "—";
+
+        if (activeGestureKey) {
+          document.getElementById(`g-${activeGestureKey}`)?.classList.remove("active");
+          activeGestureKey = null;
+        }
+        statusDot.style.background = "#ffd166";
+        statusDot.style.boxShadow = "0 0 12px #ffd166";
+        statusText.textContent = "HAND VISIBLE";
+      }
+
+    } else {
+      // No hand
+      chordDisplay.classList.remove("visible");
+      gestureLabel.textContent = "NO GESTURE";
+      gestureLabel.style.color = "rgba(255,255,255,0.2)";
+      confBar.style.width = "0%";
+      confValue.textContent = "—";
+      statusDot.classList.remove("active");
+      statusDot.style.background = "#444";
+      statusDot.style.boxShadow = "none";
+      statusText.textContent = "WAITING";
+      currentGestureColor = "#00ffe0";
+
+      if (activeGestureKey) {
+        document.getElementById(`g-${activeGestureKey}`)?.classList.remove("active");
+        activeGestureKey = null;
+      }
+    }
+  }
+
+  drawWaveform(currentGestureColor);
+  requestAnimationFrame(detect);
+}
+
+// ── Start button ─────────────────────────────────────────────
+document.getElementById("start-btn").addEventListener("click", async () => {
+  const startScreen = document.getElementById("start-screen");
+  const loading = document.getElementById("loading");
+  const errorMsg = document.getElementById("error-msg");
+
+  startScreen.style.display = "none";
+  loading.classList.remove("hidden");
+
+  try {
+    document.getElementById("loading-text").textContent = "REQUESTING CAMERA...";
+    await startCamera();
+
+    document.getElementById("loading-text").textContent = "LOADING AI MODEL...";
+    await initMediaPipe();
+
+    document.getElementById("loading-text").textContent = "INITIALIZING AUDIO...";
+    await initAudio();
+
+    loading.classList.add("hidden");
+    statusDot.classList.add("active");
+    statusText.textContent = "WAITING";
+    detect();
+
+  } catch (err) {
+    loading.classList.add("hidden");
+    errorMsg.classList.add("show");
+    document.getElementById("error-detail").textContent =
+      err.message.includes("Permission")
+        ? "Camera permission denied.\nPlease allow camera access and refresh the page."
+        : `Error: ${err.message}`;
+  }
+});
+
+// ── Recording ─────────────────────────────────────────────────
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let micStream = null;
+
+async function startRecording() {
+  // Get mic stream
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  // Create audio context to mix mic + Tone.js output
+  const audioCtx = Tone.getContext().rawContext;
+
+  // Mic source
+  const micSource = audioCtx.createMediaStreamSource(micStream);
+
+  // Tone.js destination (chord sounds)
+  const toneDestination = audioCtx.createMediaStreamDestination();
+  Tone.getDestination().connect(toneDestination);
+
+  // Mix both into one stream
+  const mixDestination = audioCtx.createMediaStreamDestination();
+  micSource.connect(mixDestination);
+  const toneSource = audioCtx.createMediaStreamSource(toneDestination.stream);
+  toneSource.connect(mixDestination);
+
+  // Record the mix
+  mediaRecorder = new MediaRecorder(mixDestination.stream);
+  recordedChunks = [];
+
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: "audio/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gesture-chords-${Date.now()}.webm`;
+    a.click();
+    URL.revokeObjectURL(url);
+    micStream.getTracks().forEach(t => t.stop());
+  };
+
+  mediaRecorder.start();
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+}
+
+// ── Record button ─────────────────────────────────────────────
+const recBtn = document.getElementById("rec-btn");
+const recLabel = document.getElementById("rec-label");
+
+recBtn.addEventListener("click", async () => {
+  if (!synth) return; // audio not started yet
+
+  if (!isRecording) {
+    await startRecording();
+    isRecording = true;
+    recBtn.classList.add("recording");
+    recLabel.textContent = "STOP";
+  } else {
+    stopRecording();
+    isRecording = false;
+    recBtn.classList.remove("recording");
+    recLabel.textContent = "REC";
+  }
+});
+</script>
+</body>
+</html>
